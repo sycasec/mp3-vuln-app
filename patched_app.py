@@ -1,7 +1,7 @@
 import secrets
 import sqlite3
 
-from flask import Flask, request, render_template, redirect, jsonify
+from flask import Flask, make_response, request, render_template, redirect, jsonify
 from helper import sanitize, is_rate_limited
 import datetime
 
@@ -56,10 +56,15 @@ def home():
                           + "users.id = sessions.user WHERE sessions.token = ?;", [request.cookies.get("session_token")])
         user = res.fetchone()
         if user:
-            # res = cur.execute("SELECT message FROM posts WHERE user = ?;", [str(user[0])])
+            # Generate CSRF Token
+            csrf_token = secrets.token_urlsafe(16)
+
             res = cur.execute("SELECT message FROM posts WHERE user ='" + str(user[0]) + "';")
             posts = res.fetchall()
-            return render_template("home.html", username=user[1], posts=posts)
+
+            resp = make_response(render_template("home.html", username=user[1], posts=posts, csrf_token=csrf_token))
+            resp.set_cookie("csrf_token", csrf_token, httponly=True)
+            return resp
 
     return redirect("/login")
 
@@ -67,7 +72,7 @@ def home():
 @app.route("/posts", methods=["POST"])
 def posts():
     cur = con.cursor()
-    if request.cookies.get("session_token"):
+    if request.cookies.get("session_token") and request.form.get("csrf_token") == request.cookies.get("csrf_token"):
         res = cur.execute("SELECT users.id, username FROM users INNER JOIN sessions ON "
                           + "users.id = sessions.user WHERE sessions.token = ?;", [request.cookies.get("session_token")])
         user = res.fetchone()
