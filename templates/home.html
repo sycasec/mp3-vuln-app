@@ -9,6 +9,7 @@
     <h3>Posts</h3>
     <form method="post" action="/posts">
       <input type="text" name="message" />
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}" />
       <input type="submit" value="Post!" />
     </form>
     <ul>
