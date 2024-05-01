@@ -1,14 +1,24 @@
 import secrets
 import sqlite3
 
-from flask import Flask, make_response, request, render_template, redirect, jsonify
-from helper import sanitize, is_rate_limited
-import datetime
+from flask import Flask, make_response, request, render_template, redirect
+from helper import sanitize
+
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 app = Flask(__name__)
 con = sqlite3.connect("app.db", check_same_thread=False)
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    storage_uri="memory://",
+)
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("1/second")
+@limiter.limit("10/hour")
+@limiter.limit("100/day")
 def login():
     cur = con.cursor()
     if request.method == "GET":
@@ -23,13 +33,6 @@ def login():
 
         return render_template("login.html")
     else:
-        remote_address = request.remote_addr
-        cur.execute("INSERT INTO login_attempts (remote_address, timestamp) VALUES(?,?)", [remote_address, datetime.datetime.now()])
-        con.commit()
-        
-        if is_rate_limited(cur, remote_address):
-            return render_template("login.html", error="Login attempts exceeded limit.")
-        
         # parameterized username and password to prevent SQL injection
         res = cur.execute("SELECT id from users WHERE username = ? AND password = ?", [request.form["username"], request.form["password"]])
         user = res.fetchone()
@@ -70,6 +73,7 @@ def home():
 
 
 @app.route("/posts", methods=["POST"])
+@limiter.limit("2/second")
 def posts():
     cur = con.cursor()
     if request.cookies.get("session_token") and request.form.get("csrf_token") == request.cookies.get("csrf_token"):
